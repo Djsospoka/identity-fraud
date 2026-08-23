@@ -1,0 +1,1307 @@
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local Camera = workspace.CurrentCamera
+
+-- =========================================================================
+-- 1. CYBERPUNK PALETTE & PALETTE HELPERS
+-- =========================================================================
+local C_DARK = Color3.fromRGB(4, 8, 6)
+local C_FRAME = Color3.fromRGB(8, 14, 10)
+local C_BORDER = Color3.fromRGB(0, 255, 128)
+local C_NEON = Color3.fromRGB(0, 255, 150)
+local C_CYAN = Color3.fromRGB(0, 230, 255)
+local C_RED = Color3.fromRGB(255, 45, 85)
+local C_TEXT = Color3.fromRGB(200, 255, 220)
+
+-- =========================================================================
+-- 2. SCREENGUI SETUP
+-- =========================================================================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "MatrixCyberDecoderX10000"
+screenGui.ResetOnSpawn = false
+
+pcall(function() screenGui.Parent = game:GetService("CoreGui") end)
+if not screenGui.Parent then screenGui.Parent = PlayerGui end
+
+local function applyBinaryBackground(btn)
+    btn.ClipsDescendants = true
+    local bgFrame = Instance.new("Frame", btn)
+    bgFrame.Size = UDim2.new(1, 0, 1, 0)
+    bgFrame.BackgroundTransparency = 1
+    bgFrame.ZIndex = 1
+
+    local label = Instance.new("TextLabel", bgFrame)
+    label.Size = UDim2.new(1, 0, 2, 0)
+    label.Position = UDim2.new(0, 0, -1, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = C_NEON
+    label.TextTransparency = 0.9
+    label.TextSize = 8
+    label.Font = Enum.Font.Code
+    label.TextWrapped = true
+    label.TextYAlignment = Enum.TextYAlignment.Top
+    label.Text = "01001000 01000001 01000011 01001011\n11001101 00110010 10101010 01010101\n00101011 11010100 11110000 00001111"
+    label.ZIndex = 1
+
+    task.spawn(function()
+        while btn and btn.Parent do
+            label.Position = UDim2.new(0, 0, -1, 0)
+            local tween = TweenService:Create(label, TweenInfo.new(3.5, Enum.EasingStyle.Linear), {Position = UDim2.new(0, 0, 0, 0)})
+            tween:Play()
+            tween.Completed:Wait()
+        end
+    end)
+end
+
+local function attachBtnAnim(btn, hoverColor)
+    applyBinaryBackground(btn)
+    local origSize = btn.Size
+    local origColor = btn.BackgroundColor3
+    hoverColor = hoverColor or Color3.fromRGB(math.min(origColor.R * 255 + 30, 255), math.min(origColor.G * 255 + 30, 255), math.min(origColor.B * 255 + 30, 255))
+
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundColor3 = hoverColor
+        }):Play()
+    end)
+
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundColor3 = origColor,
+            Size = origSize
+        }):Play()
+    end)
+
+    btn.MouseButton1Down:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = UDim2.new(origSize.X.Scale * 0.95, origSize.X.Offset * 0.95, origSize.Y.Scale * 0.95, origSize.Y.Offset * 0.95)
+        }):Play()
+    end)
+
+    btn.MouseButton1Up:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = origSize
+        }):Play()
+    end)
+end
+
+-- =========================================================================
+-- 3. MAIN INTERFACE FRAME & TOGGLE BUTTON (HACKER HUD GLOW)
+-- =========================================================================
+local toggleBtn = Instance.new("TextButton", screenGui)
+toggleBtn.Size = UDim2.new(0, 56, 0, 56)
+toggleBtn.Position = UDim2.new(0, 18, 0.5, -28)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(2, 8, 4)
+toggleBtn.Text = ""
+toggleBtn.Active = true
+toggleBtn.Draggable = true
+toggleBtn.ZIndex = 5
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 14)
+
+local toggleStroke = Instance.new("UIStroke", toggleBtn)
+toggleStroke.Color = C_NEON
+toggleStroke.Thickness = 2.5
+toggleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+local toggleGrad = Instance.new("UIGradient", toggleBtn)
+toggleGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 40, 15)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 10, 5))
+})
+toggleGrad.Rotation = 45
+
+local eyeImg = Instance.new("ImageLabel", toggleBtn)
+eyeImg.Size = UDim2.new(0.7, 0, 0.7, 0)
+eyeImg.Position = UDim2.new(0.15, 0, 0.15, 0)
+eyeImg.BackgroundTransparency = 1
+eyeImg.Image = "rbxassetid://6034818372"
+eyeImg.ImageColor3 = C_NEON
+eyeImg.ZIndex = 5
+
+-- Floating Animation for Toggle HUD
+task.spawn(function()
+    while toggleBtn and toggleBtn.Parent do
+        local tw1 = TweenService:Create(toggleStroke, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Color = C_CYAN})
+        tw1:Play()
+        tw1.Completed:Wait()
+        local tw2 = TweenService:Create(toggleStroke, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Color = C_NEON})
+        tw2:Play()
+        tw2.Completed:Wait()
+    end
+end)
+
+local mainFrame = Instance.new("Frame", screenGui)
+mainFrame.Size = UDim2.new(0, 490, 0, 420)
+mainFrame.Position = UDim2.new(0.5, -245, 0.4, -210)
+mainFrame.BackgroundColor3 = C_DARK
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.ClipsDescendants = true
+mainFrame.Visible = false
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
+
+local mainGrad = Instance.new("UIGradient", mainFrame)
+mainGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(6, 16, 10)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(2, 6, 4))
+})
+mainGrad.Rotation = 90
+
+local mainScale = Instance.new("UIScale", mainFrame)
+mainScale.Scale = 0
+
+local mainStroke = Instance.new("UIStroke", mainFrame)
+mainStroke.Color = C_NEON
+mainStroke.Thickness = 2
+mainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+-- Background Matrix Effect & Hacker Scanlines
+local matrixContainer = Instance.new("Frame", mainFrame)
+matrixContainer.Size = UDim2.new(1, 0, 1, 0)
+matrixContainer.BackgroundTransparency = 1
+matrixContainer.ClipsDescendants = true
+matrixContainer.ZIndex = 1
+
+local columnsCount = 16
+for i = 1, columnsCount do
+    local col = Instance.new("TextLabel", matrixContainer)
+    col.Size = UDim2.new(0, 26, 1, 150)
+    col.Position = UDim2.new((i - 1) / columnsCount, 2, 0, math.random(-200, 0))
+    col.BackgroundTransparency = 1
+    col.TextColor3 = C_NEON
+    col.TextTransparency = math.random(75, 92) / 100
+    col.TextSize = math.random(9, 11)
+    col.Font = Enum.Font.Code
+    col.TextYAlignment = Enum.TextYAlignment.Top
+    col.TextWrapped = true
+
+    local function genBinaryStr()
+        local str = ""
+        local glyphs = {"0", "1", "x", "F", "7", "A", "#", "$"}
+        for _ = 1, 20 do str = str .. glyphs[math.random(1, #glyphs)] .. "\n" end
+        return str
+    end
+    col.Text = genBinaryStr()
+
+    task.spawn(function()
+        while task.wait(math.random(25, 50) / 1000) do
+            if mainFrame.Visible then
+                local nextY = col.Position.Y.Offset + 3.5
+                if nextY > 420 then
+                    nextY = -150
+                    col.Text = genBinaryStr()
+                end
+                col.Position = UDim2.new(col.Position.X.Scale, col.Position.X.Offset, 0, nextY)
+            end
+        end
+    end)
+end
+
+-- =========================================================================
+-- 4. HEADER FRAME
+-- =========================================================================
+local headerFrame = Instance.new("Frame", mainFrame)
+headerFrame.Size = UDim2.new(1, 0, 0, 42)
+headerFrame.BackgroundColor3 = Color3.fromRGB(6, 18, 10)
+headerFrame.BackgroundTransparency = 0.4
+headerFrame.ZIndex = 2
+
+local headerBottomBorder = Instance.new("Frame", headerFrame)
+headerBottomBorder.Size = UDim2.new(1, 0, 0, 1)
+headerBottomBorder.Position = UDim2.new(0, 0, 1, -1)
+headerBottomBorder.BackgroundColor3 = C_NEON
+headerBottomBorder.BackgroundTransparency = 0.5
+headerBottomBorder.BorderSizePixel = 0
+headerBottomBorder.ZIndex = 3
+
+local title = Instance.new("TextLabel", headerFrame)
+title.Size = UDim2.new(1, -210, 1, 0)
+title.Position = UDim2.new(0, 12, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "⚡ [CYBER_DECODER // v10.0]"
+title.TextColor3 = C_NEON
+title.TextSize = 12
+title.Font = Enum.Font.Code
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.ZIndex = 3
+
+local creditLabel = Instance.new("TextLabel", headerFrame)
+creditLabel.Size = UDim2.new(0, 130, 1, 0)
+creditLabel.Position = UDim2.new(1, -200, 0, 0)
+creditLabel.BackgroundTransparency = 1
+creditLabel.Text = "BY @DJSOSPOKA"
+creditLabel.TextColor3 = C_CYAN
+creditLabel.TextSize = 9
+creditLabel.Font = Enum.Font.Code
+creditLabel.TextXAlignment = Enum.TextXAlignment.Right
+creditLabel.ZIndex = 3
+
+local isFrameLocked = false
+local lockBtn = Instance.new("TextButton", headerFrame)
+lockBtn.Size = UDim2.new(0, 28, 0, 28)
+lockBtn.Position = UDim2.new(1, -66, 0, 7)
+lockBtn.BackgroundColor3 = Color3.fromRGB(10, 30, 15)
+lockBtn.Text = "🔓"
+lockBtn.TextColor3 = C_NEON
+lockBtn.Font = Enum.Font.Code
+lockBtn.TextSize = 12
+lockBtn.ZIndex = 3
+Instance.new("UICorner", lockBtn).CornerRadius = UDim.new(0, 6)
+local lockStroke = Instance.new("UIStroke", lockBtn)
+lockStroke.Color = C_NEON
+lockStroke.Thickness = 1
+attachBtnAnim(lockBtn, Color3.fromRGB(20, 60, 25))
+
+lockBtn.MouseButton1Click:Connect(function()
+    isFrameLocked = not isFrameLocked
+    mainFrame.Draggable = not isFrameLocked
+    if isFrameLocked then
+        lockBtn.Text = "🔒"
+        lockBtn.BackgroundColor3 = Color3.fromRGB(60, 15, 20)
+        lockBtn.TextColor3 = C_RED
+        lockStroke.Color = C_RED
+    else
+        lockBtn.Text = "🔓"
+        lockBtn.BackgroundColor3 = Color3.fromRGB(10, 30, 15)
+        lockBtn.TextColor3 = C_NEON
+        lockStroke.Color = C_NEON
+    end
+end)
+
+local closeBtn = Instance.new("TextButton", headerFrame)
+closeBtn.Size = UDim2.new(0, 28, 0, 28)
+closeBtn.Position = UDim2.new(1, -34, 0, 7)
+closeBtn.BackgroundColor3 = Color3.fromRGB(50, 10, 20)
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = C_RED
+closeBtn.Font = Enum.Font.Code
+closeBtn.TextSize = 13
+closeBtn.ZIndex = 3
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+local closeStroke = Instance.new("UIStroke", closeBtn)
+closeStroke.Color = C_RED
+closeStroke.Thickness = 1
+attachBtnAnim(closeBtn, Color3.fromRGB(80, 15, 25))
+
+local isGuiOpen = false
+local function toggleUI()
+    isGuiOpen = not isGuiOpen
+    if isGuiOpen then
+        mainFrame.Visible = true
+        mainScale.Scale = 0
+        TweenService:Create(mainScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+    else
+        local tween = TweenService:Create(mainScale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Scale = 0})
+        tween:Play()
+        tween.Completed:Connect(function()
+            if not isGuiOpen then mainFrame.Visible = false end
+        end)
+    end
+end
+
+closeBtn.MouseButton1Click:Connect(toggleUI)
+toggleBtn.MouseButton1Click:Connect(toggleUI)
+
+-- =========================================================================
+-- 5. MODE TABS SETUP (NEON CYBER DESIGN)
+-- =========================================================================
+local tabFrame = Instance.new("Frame", mainFrame)
+tabFrame.Size = UDim2.new(1, -24, 0, 34)
+tabFrame.Position = UDim2.new(0, 12, 0, 48)
+tabFrame.BackgroundColor3 = Color3.fromRGB(6, 16, 10)
+tabFrame.BackgroundTransparency = 0.3
+tabFrame.ZIndex = 2
+Instance.new("UICorner", tabFrame).CornerRadius = UDim.new(0, 8)
+local tabStroke = Instance.new("UIStroke", tabFrame)
+tabStroke.Color = Color3.fromRGB(0, 120, 60)
+tabStroke.Thickness = 1
+
+local function createTabBtn(text, pos)
+    local btn = Instance.new("TextButton", tabFrame)
+    btn.Size = UDim2.new(0.325, 0, 1, -4)
+    btn.Position = pos
+    btn.BackgroundColor3 = Color3.fromRGB(10, 26, 14)
+    btn.Text = text
+    btn.TextColor3 = C_NEON
+    btn.Font = Enum.Font.Code
+    btn.TextSize = 10
+    btn.ZIndex = 3
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    local bStroke = Instance.new("UIStroke", btn)
+    bStroke.Color = Color3.fromRGB(0, 180, 80)
+    bStroke.Thickness = 1
+    attachBtnAnim(btn, Color3.fromRGB(15, 45, 22))
+    return btn
+end
+
+local btnCodeTab = createTabBtn("💻 [DECODERS]", UDim2.new(0, 2, 0, 2))
+local btnOtherTab = createTabBtn("🛠️ [UTILITIES]", UDim2.new(0.337, 2, 0, 2))
+local btnSettingsTab = createTabBtn("⚙️ [SYSTEM]", UDim2.new(0.675, 0, 0, 2))
+
+-- =========================================================================
+-- 6. CODE DECODER FRAME
+-- =========================================================================
+local codeFrame = Instance.new("Frame", mainFrame)
+codeFrame.Size = UDim2.new(1, -24, 0, 315)
+codeFrame.Position = UDim2.new(0, 12, 0, 88)
+codeFrame.BackgroundTransparency = 1
+codeFrame.ZIndex = 2
+
+local subTabFrame = Instance.new("Frame", codeFrame)
+subTabFrame.Size = UDim2.new(1, 0, 0, 28)
+subTabFrame.BackgroundTransparency = 1
+subTabFrame.ZIndex = 2
+
+local function createSubBtn(text, pos)
+    local btn = Instance.new("TextButton", subTabFrame)
+    btn.Size = UDim2.new(0.315, 0, 1, 0)
+    btn.Position = pos
+    btn.BackgroundColor3 = Color3.fromRGB(8, 22, 12)
+    btn.Text = text
+    btn.TextColor3 = C_CYAN
+    btn.Font = Enum.Font.Code
+    btn.TextSize = 9.5
+    btn.ZIndex = 2
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
+    local sStroke = Instance.new("UIStroke", btn)
+    sStroke.Color = Color3.fromRGB(0, 150, 120)
+    sStroke.Thickness = 1
+    attachBtnAnim(btn, Color3.fromRGB(12, 36, 20))
+    return btn
+end
+
+local btnB64 = createSubBtn("🔓 BASE64", UDim2.new(0, 0, 0, 0))
+local btnMorse = createSubBtn("📡 MORSE CODE", UDim2.new(0.342, 0, 0, 0))
+local btnHex = createSubBtn("🧬 HEXADECIMAL", UDim2.new(0.685, 0, 0, 0))
+
+local function createDecoderPanel(titleTxt, descTxt, placeHolder, btnTxt)
+    local panel = Instance.new("Frame", codeFrame)
+    panel.Size = UDim2.new(1, 0, 0, 280)
+    panel.Position = UDim2.new(0, 0, 0, 32)
+    panel.BackgroundTransparency = 1
+    panel.Visible = false
+    panel.ZIndex = 2
+
+    local guideBox = Instance.new("Frame", panel)
+    guideBox.Size = UDim2.new(1, 0, 0, 48)
+    guideBox.Position = UDim2.new(0, 0, 0, 0)
+    guideBox.BackgroundColor3 = Color3.fromRGB(4, 14, 8)
+    guideBox.BackgroundTransparency = 0.3
+    guideBox.ZIndex = 2
+    Instance.new("UICorner", guideBox).CornerRadius = UDim.new(0, 6)
+    local gStroke = Instance.new("UIStroke", guideBox)
+    gStroke.Color = Color3.fromRGB(0, 140, 70)
+    gStroke.Thickness = 1
+
+    local gTitle = Instance.new("TextLabel", guideBox)
+    gTitle.Size = UDim2.new(1, -10, 0, 16)
+    gTitle.Position = UDim2.new(0, 8, 0, 4)
+    gTitle.BackgroundTransparency = 1
+    gTitle.Text = titleTxt
+    gTitle.TextColor3 = C_CYAN
+    gTitle.TextSize = 9.5
+    gTitle.Font = Enum.Font.Code
+    gTitle.TextXAlignment = Enum.TextXAlignment.Left
+    gTitle.ZIndex = 2
+
+    local gDesc = Instance.new("TextLabel", guideBox)
+    gDesc.Size = UDim2.new(1, -10, 0, 26)
+    gDesc.Position = UDim2.new(0, 8, 0, 20)
+    gDesc.BackgroundTransparency = 1
+    gDesc.Text = descTxt
+    gDesc.TextColor3 = C_TEXT
+    gDesc.TextSize = 8.5
+    gDesc.Font = Enum.Font.Code
+    gDesc.TextWrapped = true
+    gDesc.TextXAlignment = Enum.TextXAlignment.Left
+    gDesc.TextYAlignment = Enum.TextYAlignment.Top
+    gDesc.ZIndex = 2
+
+    local box = Instance.new("TextBox", panel)
+    box.Size = UDim2.new(1, 0, 0, 32)
+    box.Position = UDim2.new(0, 0, 0, 54)
+    box.PlaceholderText = placeHolder
+    box.PlaceholderColor3 = Color3.fromRGB(0, 140, 60)
+    box.Text = ""
+    box.TextColor3 = C_NEON
+    box.BackgroundColor3 = Color3.fromRGB(3, 10, 5)
+    box.TextSize = 11
+    box.Font = Enum.Font.Code
+    box.ClearTextOnFocus = false
+    box.ZIndex = 2
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
+    local boxStroke = Instance.new("UIStroke", box)
+    boxStroke.Color = Color3.fromRGB(0, 200, 90)
+    boxStroke.Thickness = 1
+
+    local actBtn = Instance.new("TextButton", panel)
+    actBtn.Size = UDim2.new(1, 0, 0, 28)
+    actBtn.Position = UDim2.new(0, 0, 0, 92)
+    actBtn.BackgroundColor3 = Color3.fromRGB(0, 160, 70)
+    actBtn.Text = "⚡ " .. btnTxt
+    actBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    actBtn.Font = Enum.Font.Code
+    actBtn.TextSize = 10.5
+    actBtn.ZIndex = 2
+    Instance.new("UICorner", actBtn).CornerRadius = UDim.new(0, 6)
+    local actStroke = Instance.new("UIStroke", actBtn)
+    actStroke.Color = C_NEON
+    actStroke.Thickness = 1
+    attachBtnAnim(actBtn, Color3.fromRGB(0, 210, 90))
+
+    local resFrame = Instance.new("Frame", panel)
+    resFrame.Size = UDim2.new(1, 0, 0, 145)
+    resFrame.Position = UDim2.new(0, 0, 0, 126)
+    resFrame.BackgroundColor3 = Color3.fromRGB(2, 6, 3)
+    resFrame.ZIndex = 2
+    Instance.new("UICorner", resFrame).CornerRadius = UDim.new(0, 6)
+    local resStroke = Instance.new("UIStroke", resFrame)
+    resStroke.Color = Color3.fromRGB(0, 100, 50)
+    resStroke.Thickness = 1
+
+    local resTxt = Instance.new("TextLabel", resFrame)
+    resTxt.Size = UDim2.new(1, -16, 0, 125)
+    resTxt.Position = UDim2.new(0, 8, 0, 8)
+    resTxt.BackgroundTransparency = 1
+    resTxt.Text = ">> [SYSTEM_IDLE: WAITING FOR ENCRYPTED STREAM...]"
+    resTxt.TextColor3 = C_NEON
+    resTxt.TextSize = 10.5
+    resTxt.Font = Enum.Font.Code
+    resTxt.TextXAlignment = Enum.TextXAlignment.Left
+    resTxt.TextYAlignment = Enum.TextYAlignment.Top
+    resTxt.TextWrapped = true
+    resTxt.ZIndex = 2
+
+    return panel, box, actBtn, resTxt
+end
+
+local panelB64, boxB64, actB64, resB64 = createDecoderPanel(
+    "📌 BASE64 OVERRIDE (Maze 2 / Wall & Screen Decryption):",
+    "• Locate base64 characters from walls or terminal screens.\n• Paste string below and run decoder to retrieve the access code.",
+    "[PASTE_BASE64_PAYLOAD_HERE]",
+    "DECODE BASE64 STREAM"
+)
+
+local panelMorse, boxMorse, actMorse, resMorse = createDecoderPanel(
+    "📌 MORSE FREQUENCY (Maze 1 & 3 - Audio / Flash Signals):",
+    "• Short Signal = (.) | Long Signal = (-)\n• Separate Morse groups with spaces (e.g. .---- ..---) & run decoder.",
+    "[ENTER_MORSE_PATTERN (. - /)]",
+    "TRANSLATE MORSE CODE"
+)
+
+local panelHex, boxHex, actHex, resHex = createDecoderPanel(
+    "📌 HEXADECIMAL COMPILER (Maze 3 / Mainframe Modules):",
+    "• Extract hexadecimal pairs from server racks / switches.\n• Format with or without spaces (e.g. 31 32 33 34) & compile digits.",
+    "[ENTER_HEX_SEQUENCE]",
+    "DECODE HEXADECIMAL"
+)
+
+-- =========================================================================
+-- 7. OTHER UTILITIES FRAME (HACKER TOOLS)
+-- =========================================================================
+local otherFrame = Instance.new("Frame", mainFrame)
+otherFrame.Size = UDim2.new(1, -24, 0, 315)
+otherFrame.Position = UDim2.new(0, 12, 0, 88)
+otherFrame.BackgroundTransparency = 1
+otherFrame.Visible = false
+otherFrame.ZIndex = 2
+
+local otherScroll = Instance.new("ScrollingFrame", otherFrame)
+otherScroll.Size = UDim2.new(1, 0, 1, 0)
+otherScroll.BackgroundTransparency = 1
+otherScroll.CanvasSize = UDim2.new(0, 0, 0, 230)
+otherScroll.ScrollBarThickness = 3
+otherScroll.ScrollBarImageColor3 = C_NEON
+otherScroll.ZIndex = 2
+
+local otherGrid = Instance.new("UIGridLayout", otherScroll)
+otherGrid.CellSize = UDim2.new(0.48, -4, 0, 44)
+otherGrid.CellPadding = UDim2.new(0.04, 0, 0, 8)
+otherGrid.SortOrder = Enum.SortOrder.LayoutOrder
+
+local function createToggleFeatureBtn(label)
+    local btn = Instance.new("TextButton", otherScroll)
+    btn.BackgroundColor3 = Color3.fromRGB(8, 22, 12)
+    btn.Text = label
+    btn.TextColor3 = C_NEON
+    btn.Font = Enum.Font.Code
+    btn.TextSize = 9.5
+    btn.ZIndex = 2
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    local bStroke = Instance.new("UIStroke", btn)
+    bStroke.Color = Color3.fromRGB(0, 160, 80)
+    bStroke.Thickness = 1
+    attachBtnAnim(btn, Color3.fromRGB(15, 45, 20))
+    return btn
+end
+
+local btnDelCeiling = createToggleFeatureBtn("🏠 REMOVE CEILING: [OFF]")
+local btnFullbright = createToggleFeatureBtn("💡 CYBER VISION: [OFF]")
+local btnPlayerEsp = createToggleFeatureBtn("👁️ PLAYER RADAR: [OFF]")
+local btnNpcEsp = createToggleFeatureBtn("👾 ENTITY ESP: [OFF]")
+local btnThirdPerson = createToggleFeatureBtn("🎥 EXTENDED VIEW: [OFF]")
+local btnMaxZoom = createToggleFeatureBtn("🔍 INFINITE ZOOM: [OFF]")
+local btnShiftLockToggle = createToggleFeatureBtn("🔒 HUD SHIFTLOCK: [OFF]")
+
+-- =========================================================================
+-- 8. SETTINGS & SYSTEM MONITOR FRAME
+-- =========================================================================
+local settingsFrame = Instance.new("Frame", mainFrame)
+settingsFrame.Size = UDim2.new(1, -24, 0, 315)
+settingsFrame.Position = UDim2.new(0, 12, 0, 88)
+settingsFrame.BackgroundTransparency = 1
+settingsFrame.Visible = false
+settingsFrame.ZIndex = 2
+
+local settingsScroll = Instance.new("ScrollingFrame", settingsFrame)
+settingsScroll.Size = UDim2.new(1, 0, 1, 0)
+settingsScroll.BackgroundTransparency = 1
+settingsScroll.CanvasSize = UDim2.new(0, 0, 0, 500)
+settingsScroll.ScrollBarThickness = 3
+settingsScroll.ScrollBarImageColor3 = C_NEON
+settingsScroll.ZIndex = 2
+
+local settingsLayout = Instance.new("UIListLayout", settingsScroll)
+settingsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+settingsLayout.Padding = UDim.new(0, 8)
+
+-- 8.1 LIVE FPS COUNTER
+local fpsBox = Instance.new("Frame", settingsScroll)
+fpsBox.Size = UDim2.new(1, -6, 0, 34)
+fpsBox.BackgroundColor3 = Color3.fromRGB(4, 12, 6)
+fpsBox.BackgroundTransparency = 0.3
+fpsBox.ZIndex = 2
+fpsBox.LayoutOrder = 1
+Instance.new("UICorner", fpsBox).CornerRadius = UDim.new(0, 6)
+
+local fpsStroke = Instance.new("UIStroke", fpsBox)
+fpsStroke.Color = C_NEON
+fpsStroke.Thickness = 1
+
+local fpsLabel = Instance.new("TextLabel", fpsBox)
+fpsLabel.Size = UDim2.new(1, -16, 1, 0)
+fpsLabel.Position = UDim2.new(0, 10, 0, 0)
+fpsLabel.BackgroundTransparency = 1
+fpsLabel.Text = "⚡ REFRESH_RATE: Calculating..."
+fpsLabel.TextColor3 = C_NEON
+fpsLabel.Font = Enum.Font.Code
+fpsLabel.TextSize = 10.5
+fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
+fpsLabel.ZIndex = 3
+
+local frameCount = 0
+local fpsTimer = 0
+RunService.RenderStepped:Connect(function(dt)
+    frameCount = frameCount + 1
+    fpsTimer = fpsTimer + dt
+
+    if fpsTimer >= 0.5 then
+        local currentFps = math.floor(frameCount / fpsTimer)
+        frameCount = 0
+        fpsTimer = 0
+
+        local fpsColor
+        local statusText = ""
+        if currentFps >= 50 then
+            fpsColor = C_NEON
+            statusText = "[OPTIMAL]"
+        elseif currentFps >= 30 then
+            fpsColor = Color3.fromRGB(255, 205, 50)
+            statusText = "[STABLE]"
+        else
+            fpsColor = C_RED
+            statusText = "[THROTTLED]"
+        end
+
+        fpsLabel.Text = string.format("⚡ CORE_RATE: %d FPS %s", currentFps, statusText)
+        fpsLabel.TextColor3 = fpsColor
+        fpsStroke.Color = fpsColor
+    end
+end)
+
+-- 8.2 UI TRANSPARENCY SLIDER
+local sliderBox = Instance.new("Frame", settingsScroll)
+sliderBox.Size = UDim2.new(1, -6, 0, 50)
+sliderBox.BackgroundColor3 = Color3.fromRGB(4, 12, 6)
+sliderBox.BackgroundTransparency = 0.3
+sliderBox.ZIndex = 2
+sliderBox.LayoutOrder = 2
+Instance.new("UICorner", sliderBox).CornerRadius = UDim.new(0, 6)
+local sBoxStroke = Instance.new("UIStroke", sliderBox)
+sBoxStroke.Color = Color3.fromRGB(0, 150, 70)
+sBoxStroke.Thickness = 1
+
+local sliderTitle = Instance.new("TextLabel", sliderBox)
+sliderTitle.Size = UDim2.new(1, -16, 0, 16)
+sliderTitle.Position = UDim2.new(0, 10, 0, 5)
+sliderTitle.BackgroundTransparency = 1
+sliderTitle.Text = "🎨 HUD OPACITY: 0%"
+sliderTitle.TextColor3 = C_CYAN
+sliderTitle.Font = Enum.Font.Code
+sliderTitle.TextSize = 9.5
+sliderTitle.TextXAlignment = Enum.TextXAlignment.Left
+sliderTitle.ZIndex = 3
+
+local sliderTrack = Instance.new("Frame", sliderBox)
+sliderTrack.Size = UDim2.new(1, -20, 0, 6)
+sliderTrack.Position = UDim2.new(0, 10, 0, 28)
+sliderTrack.BackgroundColor3 = Color3.fromRGB(8, 20, 10)
+sliderTrack.ZIndex = 3
+Instance.new("UICorner", sliderTrack).CornerRadius = UDim.new(1, 0)
+
+local sliderFill = Instance.new("Frame", sliderTrack)
+sliderFill.Size = UDim2.new(0, 0, 1, 0)
+sliderFill.BackgroundColor3 = C_NEON
+sliderFill.BorderSizePixel = 0
+sliderFill.ZIndex = 3
+Instance.new("UICorner", sliderFill).CornerRadius = UDim.new(1, 0)
+
+local sliderBtn = Instance.new("TextButton", sliderTrack)
+sliderBtn.Size = UDim2.new(0, 14, 0, 14)
+sliderBtn.Position = UDim2.new(0, -7, 0.5, -7)
+sliderBtn.BackgroundColor3 = C_CYAN
+sliderBtn.Text = ""
+sliderBtn.ZIndex = 4
+Instance.new("UICorner", sliderBtn).CornerRadius = UDim.new(1, 0)
+
+local currentTransPercent = 0
+local isDraggingSlider = false
+local function updateSlider(inputX)
+    local trackAbsPos = sliderTrack.AbsolutePosition.X
+    local trackAbsSize = sliderTrack.AbsoluteSize.X
+    local relativeX = math.clamp(inputX - trackAbsPos, 0, trackAbsSize)
+    local percent = relativeX / trackAbsSize
+    currentTransPercent = math.clamp(math.round(percent * 100), 0, 100)
+    
+    sliderFill.Size = UDim2.new(percent, 0, 1, 0)
+    sliderBtn.Position = UDim2.new(percent, -7, 0.5, -7)
+    sliderTitle.Text = "🎨 HUD OPACITY: " .. tostring(currentTransPercent) .. "%"
+    
+    local transVal = currentTransPercent / 100
+    mainFrame.BackgroundTransparency = transVal
+    tabFrame.BackgroundTransparency = math.clamp(transVal + 0.1, 0, 0.95)
+    sliderBox.BackgroundTransparency = math.clamp(transVal + 0.1, 0, 0.95)
+end
+
+sliderBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDraggingSlider = true
+    end
+end)
+sliderTrack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDraggingSlider = true
+        updateSlider(input.Position.X)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDraggingSlider = false
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if isDraggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        updateSlider(input.Position.X)
+    end
+end)
+
+-- 8.3 INFINITE YIELD EXECUTOR BUTTON
+local iyBtn = Instance.new("TextButton", settingsScroll)
+iyBtn.Size = UDim2.new(1, -6, 0, 34)
+iyBtn.BackgroundColor3 = Color3.fromRGB(10, 32, 16)
+iyBtn.Text = "🚀 LOAD INFINITE YIELD (ADMIN)"
+iyBtn.TextColor3 = C_NEON
+iyBtn.Font = Enum.Font.Code
+iyBtn.TextSize = 10
+iyBtn.ZIndex = 2
+iyBtn.LayoutOrder = 3
+Instance.new("UICorner", iyBtn).CornerRadius = UDim.new(0, 6)
+local iyStroke = Instance.new("UIStroke", iyBtn)
+iyStroke.Color = C_NEON
+iyStroke.Thickness = 1
+attachBtnAnim(iyBtn, Color3.fromRGB(20, 60, 30))
+
+iyBtn.MouseButton1Click:Connect(function()
+    iyBtn.Text = "⏳ INITIALIZING INJECTION..."
+    task.spawn(function()
+        local success, err = pcall(function()
+            loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+        end)
+        if success then
+            iyBtn.Text = "✅ EXECUTED SUCCESSFULLY!"
+        else
+            iyBtn.Text = "❌ INJECTION ABORTED"
+            warn("[IY ERROR]: ", err)
+        end
+        task.wait(3)
+        iyBtn.Text = "🚀 LOAD INFINITE YIELD (ADMIN)"
+    end)
+end)
+
+-- 8.4 SCRIPT INFO BOX
+local infoBox = Instance.new("Frame", settingsScroll)
+infoBox.Size = UDim2.new(1, -6, 0, 75)
+infoBox.BackgroundColor3 = Color3.fromRGB(4, 12, 6)
+infoBox.BackgroundTransparency = 0.3
+infoBox.ZIndex = 2
+infoBox.LayoutOrder = 4
+Instance.new("UICorner", infoBox).CornerRadius = UDim.new(0, 6)
+local iBoxStroke = Instance.new("UIStroke", infoBox)
+iBoxStroke.Color = Color3.fromRGB(0, 140, 65)
+iBoxStroke.Thickness = 1
+
+local infoTitle = Instance.new("TextLabel", infoBox)
+infoTitle.Size = UDim2.new(1, -16, 0, 18)
+infoTitle.Position = UDim2.new(0, 10, 0, 4)
+infoTitle.BackgroundTransparency = 1
+infoTitle.Text = "📜 SYSTEM_LOGS / SPECIFICATION:"
+infoTitle.TextColor3 = C_CYAN
+infoTitle.Font = Enum.Font.Code
+infoTitle.TextSize = 9.5
+infoTitle.TextXAlignment = Enum.TextXAlignment.Left
+infoTitle.ZIndex = 3
+
+local infoContent = Instance.new("TextLabel", infoBox)
+infoContent.Size = UDim2.new(1, -16, 0, 48)
+infoContent.Position = UDim2.new(0, 10, 0, 22)
+infoContent.BackgroundTransparency = 1
+infoContent.Text = "• Framework: Matrix Cyber Decoder v10.0\n• Game Target: Identity Fraud (Mazes 1, 2, 3)\n• Architecture: LuaU Core | Status: Synchronized"
+infoContent.TextColor3 = C_TEXT
+infoContent.Font = Enum.Font.Code
+infoContent.TextSize = 8.5
+infoContent.TextXAlignment = Enum.TextXAlignment.Left
+infoContent.TextYAlignment = Enum.TextYAlignment.Top
+infoContent.ZIndex = 3
+
+-- 8.5 SERVER PLAYERS (VERTICAL LIST)
+local playersBox = Instance.new("Frame", settingsScroll)
+playersBox.Size = UDim2.new(1, -6, 0, 185)
+playersBox.BackgroundColor3 = Color3.fromRGB(4, 12, 6)
+playersBox.BackgroundTransparency = 0.3
+playersBox.ZIndex = 2
+playersBox.LayoutOrder = 5
+Instance.new("UICorner", playersBox).CornerRadius = UDim.new(0, 6)
+local pBoxStroke = Instance.new("UIStroke", playersBox)
+pBoxStroke.Color = Color3.fromRGB(0, 140, 65)
+pBoxStroke.Thickness = 1
+
+local settingsPlrsTitle = Instance.new("TextLabel", playersBox)
+settingsPlrsTitle.Size = UDim2.new(1, -16, 0, 18)
+settingsPlrsTitle.Position = UDim2.new(0, 10, 0, 4)
+settingsPlrsTitle.BackgroundTransparency = 1
+settingsPlrsTitle.Text = "🌐 ACTIVE SERVER ENTITIES:"
+settingsPlrsTitle.TextColor3 = C_NEON
+settingsPlrsTitle.Font = Enum.Font.Code
+settingsPlrsTitle.TextSize = 9.5
+settingsPlrsTitle.TextXAlignment = Enum.TextXAlignment.Left
+settingsPlrsTitle.ZIndex = 3
+
+local playersScroll = Instance.new("ScrollingFrame", playersBox)
+playersScroll.Size = UDim2.new(1, -16, 0, 150)
+playersScroll.Position = UDim2.new(0, 8, 0, 26)
+playersScroll.BackgroundColor3 = Color3.fromRGB(2, 6, 3)
+playersScroll.ScrollBarThickness = 3
+playersScroll.ScrollBarImageColor3 = C_NEON
+playersScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+playersScroll.ZIndex = 3
+Instance.new("UICorner", playersScroll).CornerRadius = UDim.new(0, 4)
+
+local playersLayout = Instance.new("UIListLayout", playersScroll)
+playersLayout.FillDirection = Enum.FillDirection.Vertical
+playersLayout.SortOrder = Enum.SortOrder.LayoutOrder
+playersLayout.Padding = UDim.new(0, 4)
+
+local currentlyViewedPlayer = nil
+local function updatePlayersList()
+    for _, child in pairs(playersScroll:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+
+    local allPlrs = Players:GetPlayers()
+    settingsPlrsTitle.Text = string.format("🌐 CONNECTED CLIENTS: %d / %d", #allPlrs, Players.MaxPlayers)
+    playersScroll.CanvasSize = UDim2.new(0, 0, 0, #allPlrs * 42)
+
+    for _, plr in ipairs(allPlrs) do
+        local pItem = Instance.new("Frame", playersScroll)
+        pItem.Size = UDim2.new(1, -6, 0, 38)
+        pItem.BackgroundColor3 = Color3.fromRGB(6, 16, 9)
+        pItem.ZIndex = 4
+        Instance.new("UICorner", pItem).CornerRadius = UDim.new(0, 5)
+
+        local pAvatar = Instance.new("ImageLabel", pItem)
+        pAvatar.Size = UDim2.new(0, 28, 0, 28)
+        pAvatar.Position = UDim2.new(0, 5, 0.5, -14)
+        pAvatar.BackgroundColor3 = Color3.fromRGB(12, 26, 14)
+        pAvatar.ZIndex = 4
+        Instance.new("UICorner", pAvatar).CornerRadius = UDim.new(1, 0)
+        local avStroke = Instance.new("UIStroke", pAvatar)
+        avStroke.Color = (plr == LocalPlayer) and Color3.fromRGB(255, 215, 0) or C_NEON
+        avStroke.Thickness = 1
+
+        task.spawn(function()
+            local content, isLoaded = Players:GetUserThumbnailAsync(plr.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+            if isLoaded and pAvatar then pAvatar.Image = content end
+        end)
+
+        local pNameLabel = Instance.new("TextLabel", pItem)
+        pNameLabel.Size = UDim2.new(0.55, 0, 0, 16)
+        pNameLabel.Position = UDim2.new(0, 38, 0, 4)
+        pNameLabel.BackgroundTransparency = 1
+        pNameLabel.Text = plr.DisplayName .. " (@" .. plr.Name .. ")"
+        pNameLabel.TextColor3 = (plr == LocalPlayer) and Color3.fromRGB(255, 215, 0) or C_NEON
+        pNameLabel.Font = Enum.Font.Code
+        pNameLabel.TextSize = 8.5
+        pNameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+        pNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        pNameLabel.ZIndex = 4
+
+        local pStatsLabel = Instance.new("TextLabel", pItem)
+        pStatsLabel.Size = UDim2.new(0.55, 0, 0, 14)
+        pStatsLabel.Position = UDim2.new(0, 38, 0, 20)
+        pStatsLabel.BackgroundTransparency = 1
+        pStatsLabel.Text = string.format("ID: %d | Age: %dd", plr.UserId, plr.AccountAge)
+        pStatsLabel.TextColor3 = C_CYAN
+        pStatsLabel.Font = Enum.Font.Code
+        pStatsLabel.TextSize = 7.5
+        pStatsLabel.TextXAlignment = Enum.TextXAlignment.Left
+        pStatsLabel.ZIndex = 4
+
+        if plr ~= LocalPlayer then
+            local viewBtn = Instance.new("TextButton", pItem)
+            viewBtn.Size = UDim2.new(0, 75, 0, 24)
+            viewBtn.Position = UDim2.new(1, -80, 0.5, -12)
+            viewBtn.BackgroundColor3 = (currentlyViewedPlayer == plr) and Color3.fromRGB(180, 40, 50) or Color3.fromRGB(10, 32, 16)
+            viewBtn.Text = (currentlyViewedPlayer == plr) and "UNVIEW" or "👁️ SPECTATE"
+            viewBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            viewBtn.Font = Enum.Font.Code
+            viewBtn.TextSize = 8
+            viewBtn.ZIndex = 4
+            Instance.new("UICorner", viewBtn).CornerRadius = UDim.new(0, 4)
+            attachBtnAnim(viewBtn)
+
+            viewBtn.MouseButton1Click:Connect(function()
+                if currentlyViewedPlayer == plr then
+                    currentlyViewedPlayer = nil
+                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+                        Camera.CameraSubject = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                    end
+                else
+                    currentlyViewedPlayer = plr
+                    if plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") then
+                        Camera.CameraSubject = plr.Character:FindFirstChildOfClass("Humanoid")
+                    end
+                end
+                updatePlayersList()
+            end)
+        else
+            local meTag = Instance.new("TextLabel", pItem)
+            meTag.Size = UDim2.new(0, 75, 0, 24)
+            meTag.Position = UDim2.new(1, -80, 0.5, -12)
+            meTag.BackgroundColor3 = Color3.fromRGB(20, 35, 10)
+            meTag.Text = "[HOST]"
+            meTag.TextColor3 = Color3.fromRGB(255, 215, 0)
+            meTag.Font = Enum.Font.Code
+            meTag.TextSize = 8.5
+            meTag.ZIndex = 4
+            Instance.new("UICorner", meTag).CornerRadius = UDim.new(0, 4)
+        end
+    end
+end
+
+updatePlayersList()
+Players.PlayerAdded:Connect(updatePlayersList)
+Players.PlayerRemoving:Connect(function(plr)
+    if currentlyViewedPlayer == plr then
+        currentlyViewedPlayer = nil
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            Camera.CameraSubject = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        end
+    end
+    updatePlayersList()
+end)
+
+-- =========================================================================
+-- 9. DECODING ENGINES
+-- =========================================================================
+local b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+local b64lookup = {}
+for i = 1, #b64chars do b64lookup[b64chars:sub(i, i)] = i - 1 end
+
+local function base64Decode(data)
+    if not data or data == "" then return "[PAYLOAD_EMPTY]" end
+    data = string.gsub(data, '[^' .. b64chars .. '=]', '')
+    local output = {}
+    local buffer = 0
+    local bitsCollected = 0
+    
+    for i = 1, #data do
+        local c = data:sub(i, i)
+        if c == '=' then break end
+        local val = b64lookup[c]
+        if val then
+            buffer = bit32.bor(bit32.lshift(buffer, 6), val)
+            bitsCollected = bitsCollected + 6
+            if bitsCollected >= 8 then
+                bitsCollected = bitsCollected - 8
+                local byte = bit32.band(bit32.rshift(buffer, bitsCollected), 0xFF)
+                table.insert(output, string.char(byte))
+            end
+        end
+    end
+    return #output > 0 and table.concat(output) or "[CORRUPTED BASE64]"
+end
+
+local morseTable = {
+    [".-"] = "A", ["-..."] = "B", ["-.-."] = "C", ["-.."] = "D", ["."] = "E",
+    ["..-."] = "F", ["--."] = "G", ["...."] = "H", [".."] = "I", [".---"] = "J",
+    ["-.-"] = "K", [".-.."] = "L", ["--"] = "M", ["-."] = "N", ["---"] = "O",
+    [".--."] = "P", ["--.-"] = "Q", [".-."] = "R", ["..."] = "S", ["-"] = "T",
+    ["..-"] = "U", ["...-"] = "V", [".--"] = "W", ["-..-"] = "X", ["-.--"] = "Y",
+    ["--.."] = "Z", [".----"] = "1", ["..---"] = "2", ["...--"] = "3", ["....-"] = "4",
+    ["....."] = "5", ["-...."] = "6", ["--..."] = "7", ["---.."] = "8", ["----."] = "9", ["-----"] = "0"
+}
+
+local function decodeMorse(input)
+    if not input or input == "" then return "[PAYLOAD_EMPTY]" end
+    local decoded = ""
+    for token in string.gmatch(input, "%S+") do
+        decoded = decoded .. (token == "/" and " " or (morseTable[token] or "?"))
+    end
+    return decoded
+end
+
+local function decodeHex(input)
+    if not input or input == "" then return "[PAYLOAD_EMPTY]" end
+    local clean = string.gsub(input, "[^%x]", "")
+    local output = {}
+    for i = 1, #clean - 1, 2 do
+        local byteNum = tonumber(clean:sub(i, i + 1), 16)
+        if byteNum then table.insert(output, string.char(byteNum)) end
+    end
+    return #output > 0 and table.concat(output) or "[CORRUPTED HEX]"
+end
+
+local function setActiveMainTab(tabName)
+    codeFrame.Visible = false
+    otherFrame.Visible = false
+    settingsFrame.Visible = false
+    if tabName == "CODE" then 
+        codeFrame.Visible = true
+    elseif tabName == "OTHER" then 
+        otherFrame.Visible = true
+    elseif tabName == "SETTINGS" then 
+        settingsFrame.Visible = true
+        updatePlayersList() 
+    end
+end
+
+local function setSubCodeMode(mode)
+    panelB64.Visible = false
+    panelMorse.Visible = false
+    panelHex.Visible = false
+    if mode == "BASE64" then panelB64.Visible = true
+    elseif mode == "MORSE" then panelMorse.Visible = true
+    elseif mode == "HEX" then panelHex.Visible = true end
+end
+
+setActiveMainTab("CODE")
+setSubCodeMode("BASE64")
+
+btnCodeTab.MouseButton1Click:Connect(function() setActiveMainTab("CODE") end)
+btnOtherTab.MouseButton1Click:Connect(function() setActiveMainTab("OTHER") end)
+btnSettingsTab.MouseButton1Click:Connect(function() setActiveMainTab("SETTINGS") end)
+
+btnB64.MouseButton1Click:Connect(function() setSubCodeMode("BASE64") end)
+btnMorse.MouseButton1Click:Connect(function() setSubCodeMode("MORSE") end)
+btnHex.MouseButton1Click:Connect(function() setSubCodeMode("HEX") end)
+
+actB64.MouseButton1Click:Connect(function() resB64.Text = ">> DECRYPTED_OUTPUT: " .. base64Decode(boxB64.Text) end)
+actMorse.MouseButton1Click:Connect(function() resMorse.Text = ">> DECRYPTED_OUTPUT: " .. decodeMorse(boxMorse.Text) end)
+actHex.MouseButton1Click:Connect(function() resHex.Text = ">> DECRYPTED_OUTPUT: " .. decodeHex(boxHex.Text) end)
+
+-- =========================================================================
+-- 10. UTILITIES & CONTROLS
+-- =========================================================================
+local storedCeilingParts = {}
+local isCeilingRemoved = false
+
+btnDelCeiling.MouseButton1Click:Connect(function()
+    isCeilingRemoved = not isCeilingRemoved
+    if isCeilingRemoved then
+        storedCeilingParts = {}
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and string.find(string.lower(obj.Name), "ceiling") then
+                table.insert(storedCeilingParts, {part = obj, parent = obj.Parent})
+                obj.Parent = nil
+            end
+        end
+        btnDelCeiling.Text = "🗑️ CEILING: [BYPASSED]"
+        btnDelCeiling.TextColor3 = C_RED
+    else
+        for _, data in pairs(storedCeilingParts) do
+            if data.part and data.parent then data.part.Parent = data.parent end
+        end
+        btnDelCeiling.Text = "🏠 REMOVE CEILING: [OFF]"
+        btnDelCeiling.TextColor3 = C_NEON
+    end
+end)
+
+-- Fullbright (Cyber Vision)
+local fullbrightOn = false
+local fbConn
+local origBrightness = Lighting.Brightness
+local origClockTime = Lighting.ClockTime
+local origGlobalShadows = Lighting.GlobalShadows
+local origAmbient = Lighting.Ambient
+local origOutdoorAmbient = Lighting.OutdoorAmbient
+
+btnFullbright.MouseButton1Click:Connect(function()
+    fullbrightOn = not fullbrightOn
+    if fullbrightOn then
+        btnFullbright.Text = "💡 CYBER VISION: [ACTIVE]"
+        btnFullbright.TextColor3 = C_CYAN
+        fbConn = RunService.RenderStepped:Connect(function()
+            Lighting.Brightness = 2
+            Lighting.ClockTime = 14
+            Lighting.GlobalShadows = false
+            Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+            Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+        end)
+    else
+        btnFullbright.Text = "💡 CYBER VISION: [OFF]"
+        btnFullbright.TextColor3 = C_NEON
+        if fbConn then fbConn:Disconnect() end
+        Lighting.Brightness = origBrightness
+        Lighting.ClockTime = origClockTime
+        Lighting.GlobalShadows = origGlobalShadows
+        Lighting.Ambient = origAmbient
+        Lighting.OutdoorAmbient = origOutdoorAmbient
+    end
+end)
+
+-- Third-Person & Infinite Zoom
+local thirdPersonOn = false
+btnThirdPerson.MouseButton1Click:Connect(function()
+    thirdPersonOn = not thirdPersonOn
+    if thirdPersonOn then
+        LocalPlayer.CameraMinZoomDistance = 8
+        LocalPlayer.CameraMode = Enum.CameraMode.Classic
+        btnThirdPerson.Text = "🎥 EXTENDED VIEW: [ON]"
+        btnThirdPerson.TextColor3 = C_CYAN
+    else
+        LocalPlayer.CameraMinZoomDistance = 0.5
+        btnThirdPerson.Text = "🎥 EXTENDED VIEW: [OFF]"
+        btnThirdPerson.TextColor3 = C_NEON
+    end
+end)
+
+local maxZoomOn = false
+btnMaxZoom.MouseButton1Click:Connect(function()
+    maxZoomOn = not maxZoomOn
+    if maxZoomOn then
+        LocalPlayer.CameraMaxZoomDistance = math.huge
+        btnMaxZoom.Text = "🔍 INFINITE ZOOM: [ON]"
+        btnMaxZoom.TextColor3 = C_CYAN
+    else
+        LocalPlayer.CameraMaxZoomDistance = 128
+        btnMaxZoom.Text = "🔍 INFINITE ZOOM: [OFF]"
+        btnMaxZoom.TextColor3 = C_NEON
+    end
+end)
+
+-- Custom Hacker ShiftLock HUD
+local shiftlockScreenBtn = Instance.new("TextButton", screenGui)
+shiftlockScreenBtn.Size = UDim2.new(0, 60, 0, 60)
+shiftlockScreenBtn.Position = UDim2.new(0.85, 0, 0.55, 0)
+shiftlockScreenBtn.BackgroundColor3 = Color3.fromRGB(4, 14, 8)
+shiftlockScreenBtn.Text = "🔒"
+shiftlockScreenBtn.TextColor3 = C_NEON
+shiftlockScreenBtn.Font = Enum.Font.Code
+shiftlockScreenBtn.TextSize = 28
+shiftlockScreenBtn.Visible = false
+shiftlockScreenBtn.Active = true
+shiftlockScreenBtn.Draggable = true
+shiftlockScreenBtn.ZIndex = 10
+Instance.new("UICorner", shiftlockScreenBtn).CornerRadius = UDim.new(0, 12)
+
+local shiftStroke = Instance.new("UIStroke", shiftlockScreenBtn)
+shiftStroke.Color = C_NEON
+shiftStroke.Thickness = 2
+
+local isShiftLocked = false
+local shiftLockConn
+
+local function toggleShiftLockState()
+    isShiftLocked = not isShiftLocked
+    if isShiftLocked then
+        shiftlockScreenBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 80)
+        shiftlockScreenBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        shiftStroke.Color = Color3.fromRGB(255, 255, 255)
+        shiftLockConn = RunService.RenderStepped:Connect(function()
+            UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+            local char = LocalPlayer.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if root then
+                local _, y = Camera.CFrame:ToOrientation()
+                root.CFrame = CFrame.new(root.Position) * CFrame.Angles(0, y, 0)
+            end
+        end)
+    else
+        shiftlockScreenBtn.BackgroundColor3 = Color3.fromRGB(4, 14, 8)
+        shiftlockScreenBtn.TextColor3 = C_NEON
+        shiftStroke.Color = C_NEON
+        if shiftLockConn then shiftLockConn:Disconnect() end
+        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+    end
+end
+
+shiftlockScreenBtn.MouseButton1Click:Connect(toggleShiftLockState)
+
+local isShiftBtnShown = false
+btnShiftLockToggle.MouseButton1Click:Connect(function()
+    isShiftBtnShown = not isShiftBtnShown
+    shiftlockScreenBtn.Visible = isShiftBtnShown
+    btnShiftLockToggle.Text = isShiftBtnShown and "🔒 HUD SHIFTLOCK: [ACTIVE]" or "🔒 HUD SHIFTLOCK: [OFF]"
+    btnShiftLockToggle.TextColor3 = isShiftBtnShown and C_CYAN or C_NEON
+end)
+
+-- =========================================================================
+-- 11. SOFT CHAMS ESP SYSTEM (RADAR & TRACKER)
+-- =========================================================================
+local playerEspEnabled = false
+local npcEspEnabled = false
+local playerEspHolder = {}
+local npcEspHolder = {}
+
+local targetNpcNames = {"fraud", "kate", "ralph", "hurdle", "stan", "james"}
+
+local function isTargetNpc(model)
+    if not model:IsA("Model") or Players:GetPlayerFromCharacter(model) then return false end
+    local nameLower = string.lower(model.Name)
+    for _, npcName in ipairs(targetNpcNames) do
+        if string.find(nameLower, npcName) then return true end
+    end
+    return false
+end
+
+local function applyEspToModel(model, isNpc, cacheTable)
+    if cacheTable[model] then return end
+    local head = model:FindFirstChild("Head") or model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart
+    if not head then return end
+
+    local hl = Instance.new("Highlight")
+    hl.Adornee = model
+    if isNpc then
+        hl.FillColor = Color3.fromRGB(255, 30, 60)
+        hl.FillTransparency = 0.65
+        hl.OutlineColor = Color3.fromRGB(255, 90, 110)
+        hl.OutlineTransparency = 0.3
+    else
+        hl.FillColor = Color3.fromRGB(0, 255, 180)
+        hl.FillTransparency = 0.70
+        hl.OutlineColor = Color3.fromRGB(0, 255, 230)
+        hl.OutlineTransparency = 0.4
+    end
+    hl.Parent = screenGui
+
+    local bb = Instance.new("BillboardGui")
+    bb.Adornee = head
+    bb.Size = UDim2.new(0, 140, 0, 30)
+    bb.StudsOffset = Vector3.new(0, 3.2, 0)
+    bb.AlwaysOnTop = true
+    bb.Parent = screenGui
+
+    local txt = Instance.new("TextLabel", bb)
+    txt.Size = UDim2.new(1, 0, 1, 0)
+    txt.BackgroundTransparency = 1
+    txt.TextTransparency = 0.15
+    txt.TextColor3 = isNpc and Color3.fromRGB(255, 100, 120) or Color3.fromRGB(0, 255, 200)
+    txt.Font = Enum.Font.Code
+    txt.TextSize = 10
+    txt.Text = model.Name
+
+    cacheTable[model] = {hl = hl, bb = bb, txt = txt}
+end
+
+local function clearEspCache(cacheTable)
+    for _, data in pairs(cacheTable) do
+        if data.hl then data.hl:Destroy() end
+        if data.bb then data.bb:Destroy() end
+    end
+    table.clear(cacheTable)
+end
+
+local espTimer = 0
+RunService.Heartbeat:Connect(function(dt)
+    espTimer = espTimer + dt
+    local myChar = LocalPlayer.Character
+    local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+
+    if espTimer >= 0.5 then
+        espTimer = 0
+
+        if playerEspEnabled then
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= LocalPlayer and plr.Character then
+                    applyEspToModel(plr.Character, false, playerEspHolder)
+                end
+            end
+        end
+
+        if npcEspEnabled then
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if isTargetNpc(obj) then
+                    applyEspToModel(obj, true, npcEspHolder)
+                end
+            end
+        end
+    end
+
+    for model, data in pairs(playerEspHolder) do
+        if not playerEspEnabled or not model or not model.Parent or not model:FindFirstChild("HumanoidRootPart") then
+            if data.hl then data.hl:Destroy() end
+            if data.bb then data.bb:Destroy() end
+            playerEspHolder[model] = nil
+        else
+            if myHrp and data.txt then
+                local dist = math.floor((myHrp.Position - model.HumanoidRootPart.Position).Magnitude)
+                data.txt.Text = "👤 " .. model.Name .. " [" .. dist .. "m]"
+            end
+        end
+    end
+
+    for model, data in pairs(npcEspHolder) do
+        if not npcEspEnabled or not model or not model.Parent then
+            if data.hl then data.hl:Destroy() end
+            if data.bb then data.bb:Destroy() end
+            npcEspHolder[model] = nil
+        else
+            local hrp = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Head") or model.PrimaryPart
+            if myHrp and hrp and data.txt then
+                local dist = math.floor((myHrp.Position - hrp.Position).Magnitude)
+                data.txt.Text = "👾 " .. model.Name .. " [" .. dist .. "m]"
+            end
+        end
+    end
+end)
+
+btnPlayerEsp.MouseButton1Click:Connect(function()
+    playerEspEnabled = not playerEspEnabled
+    if not playerEspEnabled then clearEspCache(playerEspHolder) end
+    btnPlayerEsp.Text = playerEspEnabled and "👁️ PLAYER RADAR: [ACTIVE]" or "👁️ PLAYER RADAR: [OFF]"
+    btnPlayerEsp.TextColor3 = playerEspEnabled and C_CYAN or C_NEON
+end)
+
+btnNpcEsp.MouseButton1Click:Connect(function()
+    npcEspEnabled = not npcEspEnabled
+    if not npcEspEnabled then clearEspCache(npcEspHolder) end
+    btnNpcEsp.Text = npcEspEnabled and "👾 ENTITY ESP: [ACTIVE]" or "👾 ENTITY ESP: [OFF]"
+    btnNpcEsp.TextColor3 = npcEspEnabled and C_RED or C_NEON
+end)
